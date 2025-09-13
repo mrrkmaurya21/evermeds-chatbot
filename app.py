@@ -19,10 +19,15 @@ CORS(app, resources={
 })
 
 # --- OpenAI client with clear guard for missing key ---
-OPENAI_KEY = os.environ.get("OPENAI_API_KEY")
+OPENAI_KEY = os.environ.get("OPENAI_API_KEY", "")
+
+print("DEBUG ENV >> present?", bool(OPENAI_KEY))
+print("DEBUG ENV >> prefix:", OPENAI_KEY[:7], "len:", len(OPENAI_KEY))
+
 if not OPENAI_KEY:
     raise RuntimeError("OPENAI_API_KEY not set in environment")
-client = OpenAI(api_key=OPENAI_KEY, timeout=30)  # default timeout
+
+client = OpenAI(api_key=OPENAI_KEY, timeout=30)
 
 
 # ---------- Helpers (FAQ optional, never break) ----------
@@ -190,8 +195,16 @@ def api_chat():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
+@app.get("/debug/env")
+def debug_env():
+    key = os.environ.get("OPENAI_API_KEY", "")
+    return {
+        "present": bool(key),
+        "prefix": key[:7],      # e.g. 'sk-proj'
+        "length": len(key)
+    }
 # ---------- Run ----------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     app.run(host="0.0.0.0", port=port)
+
