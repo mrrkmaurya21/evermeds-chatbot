@@ -1,145 +1,197 @@
-import os, json, re, requests
-from flask import Flask, request, jsonify
-from dotenv import load_dotenv
+import os
+import re
+import json
+from flask import Flask, request, jsonify, make_response
+from flask_cors import CORS
+from openai import OpenAI
 
-# -------------------------------------------------
-# Load secrets / config from .env (same folder)
-# -------------------------------------------------
-load_dotenv()
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-MODEL = os.getenv("MODEL", "gpt-4o-mini")
-SYSTEM_PROMPT = os.getenv(
-    "SYSTEM_PROMPT",
-    "You are a brief, friendly support bot for EverMeds. Be concise. "
-    "If asked about medicines/dosage, add: 'This is not medical advice; consult your doctor.'"
-)
-
-# Startup sanity logs
-print("ENV found:", os.path.isfile(".env"))
-print("KEY startswith sk- ?", str(OPENAI_API_KEY or "").startswith("sk-"))
-print("MODEL:", MODEL)
-if not OPENAI_API_KEY or not OPENAI_API_KEY.startswith("sk-"):
-    raise RuntimeError("OPENAI_API_KEY missing/invalid. Put it in .env and restart.")
-
-# -------------------------------------------------
-# Flask app
-# -------------------------------------------------
 app = Flask(__name__)
 
-# CORS for browser (local/dev = '*'; prod me exact origin set karein)
-@app.after_request
-def add_cors_headers(resp):
-    # Example for production: resp.headers["Access-Control-Allow-Origin"] = "https://www.evermeds.in"
-    resp.headers["Access-Control-Allow-Origin"] = "*"
-    resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
-    resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
-    return resp
+# --- CORS: allow your site (add more if needed) ---
+CORS(app, resources={
+    r"/*": {
+        "origins": [
+            "https://evermeds.in",
+            "http://localhost:3000",
+            "http://localhost:8080"
+        ]
+    }
+})
 
-# -------------------------------------------------
-# Load FAQ (faq.json in same folder)
-# -------------------------------------------------
-FAQ = []
-try:
-    with open("faq.json", "r", encoding="utf-8") as f:
-        FAQ = json.load(f)
-    print(f"FAQ loaded: {len(FAQ)} items")
-except Exception as e:
-    print("FAQ not loaded:", e)
+# --- OpenAI client with clear guard for missing key ---
+OPENAI_KEY = os.environ.get("OPENAI_API_KEY")
+if not OPENAI_KEY:
+    raise RuntimeError("OPENAI_API_KEY not set in environment")
+client = OpenAI(api_key=OPENAI_KEY, timeout=30)  # default timeout
 
-_word = re.compile(r"[a-z0-9]+")
 
-def _norm(text: str):
-    return _word.findall(text.lower())
-
-def retrieve_snippets(user_msg: str, k: int = 3):
-    """Naive keyword-overlap retrieval from FAQ."""
-    if not FAQ:
+# ---------- Helpers (FAQ optional, never break) ----------
+def load_faq_safe():
+    try:
+        with open("faq.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
         return []
-    uq = set(_norm(user_msg))
+
+def best_faq_snippets(user_text: str, faq_items, top_k: int = 3):
+    """
+    Very simple keyword overlap scorer (no extra libs).
+    Returns top-k FAQ items that share words with the user query.
+    """
+    q = set(re.findall(r"[a-zA-Z0-9]+", (user_text or "").lower()))
     scored = []
-    for item in FAQ:
-        text = (item.get("q", "") + " " + item.get("a", ""))
-        it = set(_norm(text))
-        score = len(uq & it)  # overlap size
+    for item in faq_items or []:
+        qa_text = (item.get("question", "") + " " + item.get("answer", "")).lower()
+        t = set(re.findall(r"[a-zA-Z0-9]+", qa_text))
+        score = len(q & t)
         if score > 0:
             scored.append((score, item))
-    scored.sort(key=lambda x: x[0], reverse=True)
-    return [x[1] for x in scored[:k]]
+    scored.sort(reverse=True, key=lambda x: x[0])
+    return [it for _, it in scored[:top_k]]
 
-# -------------------------------------------------
-# OpenAI call
-# -------------------------------------------------
-def ask_openai(user_text: str) -> str:
-    r = requests.post(
-        "https://api.openai.com/v1/chat/completions",
-        headers={
-            "Authorization": f"Bearer {OPENAI_API_KEY}",
-            "Content-Type": "application/json"
-        },
-        json={
-            "model": MODEL,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_text}
-            ],
-            "temperature": 0.2
-        },
-        timeout=30
-    )
-    r.raise_for_status()
-    return r.json()["choices"][0]["message"]["content"]
 
-# -------------------------------------------------
-# Routes
-# -------------------------------------------------
-@app.route("/chat", methods=["POST", "OPTIONS"])
-def chat():
-    # CORS preflight
-    if request.method == "OPTIONS":
-        return ("", 204)
+# ---------- Health ----------
+@app.get("/health")
+def health():
+    return {"ok": True}
 
-    data = request.get_json(force=True, silent=True) or {}
-    msg = (data.get("message") or "").strip()
-    if not msg:
-        return jsonify({"error": "empty message"}), 400
 
-    # 1) Try FAQ first (fast path)
-    snippets = retrieve_snippets(msg, k=3)
-    if snippets:
-        top = snippets[0]
-        # simple heuristic: if >=3 token overlap, return direct FAQ answer
-        if len(set(_norm(msg)) & set(_norm(top.get("q","") + " " + top.get("a","")))) >= 3:
-            ans = top.get("a", "")
-            if any(w in msg.lower() for w in ["mg","dose","dosage","tablet","medicine","drug"]):
-                ans += "\n\n*Note: This is general info, not medical advice. Please consult your doctor.*"
-            return jsonify({"reply": ans})
-
-    # 2) Else: build context from top FAQ hits and call OpenAI
-    context = ""
-    if snippets:
-        ctx_lines = [f"- Q: {s.get('q','')} A: {s.get('a','')}" for s in snippets]
-        context = "Relevant FAQ snippets:\n" + "\n".join(ctx_lines)
-
+# ---------- FAQs (reads faq.json from repo root) ----------
+@app.get("/faq")
+def get_faq():
     try:
-        prompt = (context + "\n\nUser: " + msg) if context else msg
-        ans = ask_openai(prompt)
-    except requests.HTTPError as e:
-        return jsonify({"error": f"Upstream error: {e.response.text[:200]}"}), 502
+        with open("faq.json", "r", encoding="utf-8") as f:
+            faq_data = json.load(f)
+        return jsonify(faq_data)
+    except FileNotFoundError:
+        return jsonify({"error": "faq.json not found in repo root"}), 404
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-    if any(w in msg.lower() for w in ["mg","dose","dosage","tablet","medicine","drug"]):
-        ans += "\n\n*Note: This is general info, not medical advice. Please consult your doctor.*"
 
-    return jsonify({"reply": ans})
+# ---------- Minimal in-iframe Widget UI ----------
+@app.get("/widget")
+def widget():
+    html = """<!doctype html>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EverMeds Assistant</title>
+<style>
+  body{font:16px system-ui;margin:0;background:#fff}
+  header{background:#1e90ff;color:#fff;padding:10px 12px;font-weight:700}
+  .box{padding:12px}
+  .row{display:flex;gap:8px;margin-top:8px}
+  textarea{width:100%;height:120px;padding:8px;border:1px solid #ccc;border-radius:8px}
+  button{padding:8px 12px;border:0;border-radius:8px;cursor:pointer;background:#1e90ff;color:#fff}
+  pre{white-space:pre-wrap;font-family:ui-monospace, SFMono-Regular, Menlo, monospace;background:#f6f8fa;padding:10px;border-radius:8px}
+  .faq{margin-top:14px}
+  .faq h4{margin:12px 0 6px}
+  .faq-item{margin:8px 0}
+  .faq-q{font-weight:600}
+</style>
+<header>EverMeds Assistant</header>
+<div class="box">
+  <div class="row">
+    <textarea id="msg" placeholder="e.g., Which diabetes product is right for me?"></textarea>
+  </div>
+  <div class="row">
+    <button id="send">Send</button>
+  </div>
+  <h4>Reply</h4>
+  <pre id="out">—</pre>
 
-@app.get("/health")
-def health():
-    return "ok", 200
+  <div class="faq">
+    <h4>Quick FAQs</h4>
+    <div id="faqList">Loading FAQs…</div>
+  </div>
+</div>
+<script>
+  const out = document.getElementById('out');
+  document.getElementById('send').onclick = async () => {
+    const text = document.getElementById('msg').value.trim();
+    if(!text){ out.textContent = 'Please type something.'; return; }
+    if(text.length > 4000){ out.textContent = 'Input too long.'; return; }
+    out.textContent = 'Thinking…';
+    try{
+      const r = await fetch('/api/chat', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({messages:[{role:'user', content:text}]})
+      });
+      if(!r.ok){ out.textContent = 'Error: ' + r.status; return; }
+      const data = await r.json();
+      out.textContent = data.reply || '(no reply)';
+    }catch(e){
+      out.textContent = 'Network error';
+    }
+  };
 
-# -------------------------------------------------
-# Main
-# -------------------------------------------------
+  // Load FAQs (best-effort)
+  (async function(){
+    try{
+      const r = await fetch('/faq');
+      const box = document.getElementById('faqList');
+      if(!r.ok){ box.textContent = 'FAQs unavailable.'; return; }
+      const items = await r.json();
+      if(!Array.isArray(items)){ box.textContent = 'No FAQs found.'; return; }
+      box.innerHTML = items.map(x => (
+        '<div class="faq-item"><div class="faq-q">'+
+        (x.question ? String(x.question) : '')+
+        '</div><div class="faq-a">'+
+        (x.answer ? String(x.answer) : '')+
+        '</div></div>'
+      )).join('');
+    }catch(e){
+      const box = document.getElementById('faqList');
+      box.textContent = 'FAQs unavailable.';
+    }
+  })();
+</script>
+"""
+    resp = make_response(html)
+    # Security / embed headers
+    resp.headers["X-Frame-Options"] = "ALLOWALL"  # intentionally embeddable in iframe
+    resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    resp.headers["X-Robots-Tag"] = "noindex, nofollow"
+    return resp
+
+
+# ---------- Chat proxy (FAQ-aware, graceful fallback) ----------
+@app.post("/api/chat")
+def api_chat():
+    payload = request.get_json(silent=True) or {}
+    messages = payload.get("messages", [])
+    if not isinstance(messages, list) or not messages:
+        return jsonify({"error": "no messages"}), 400
+
+    # Basic input length guard (user text total)
+    user_len = sum(len(m.get("content", "")) for m in messages if m.get("role") == "user")
+    if user_len > 4000:
+        return jsonify({"error": "input too long"}), 413
+
+    # Try to enrich with FAQs, but do NOT fail if missing
+    faq_items = load_faq_safe()
+    user_text = " ".join([m.get("content", "") for m in messages if m.get("role") == "user"])
+    top_faqs = best_faq_snippets(user_text, faq_items, top_k=3) if faq_items else []
+
+    system_ctx = "You are EverMeds assistant. Be concise, safe, and helpful."
+    if top_faqs:
+        system_ctx += "\nUse these FAQs if relevant:\n" + json.dumps(top_faqs, ensure_ascii=False)
+
+    messages_with_ctx = [{"role": "system", "content": system_ctx}] + messages
+
+    try:
+        r = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages_with_ctx,
+            temperature=0.3
+        )
+        reply = r.choices[0].message.content
+        return jsonify({"reply": reply})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------- Run ----------
 if __name__ == "__main__":
-    # Local dev server
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    port = int(os.environ.get("PORT", 8000))
+    app.run(host="0.0.0.0", port=port)
