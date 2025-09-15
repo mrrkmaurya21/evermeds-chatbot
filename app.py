@@ -27,7 +27,6 @@ from pydantic import BaseModel
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse, FileResponse, RedirectResponse
 
-
 HERE = Path(__file__).parent
 KB_PATH = HERE / "faq.json"
 
@@ -171,27 +170,26 @@ def chat(inp: ChatIn):
     result = ask(AskIn(q=inp.message))
     return {"reply": result["answer"], "citations": result.get("citations", [])}
 
-# Serve Chat UI directly from this service
+@app.get("/", include_in_schema=False)
+def root():
+    return {"ok": True, "service": "EverMeds FAQ Bot", "routes": ["/ask","/ui","/healthz"]}
+
 @app.get("/ui", include_in_schema=False)
 def ui():
-    path = HERE / UI_FILE  # e.g., chatui.html
+    path = HERE / UI_FILE
     if path.exists():
         resp = FileResponse(str(path), media_type="text/html")
-        # Allow embedding from your site(s)
         if FRAME_ANCESTORS:
             resp.headers["Content-Security-Policy"] = f"frame-ancestors 'self' {FRAME_ANCESTORS}"
         return resp
     return JSONResponse({"error": f"{UI_FILE} not found"}, status_code=404)
 
-# Legacy alias -> redirect to /ui (307 preserves method)
 @app.get("/widget", include_in_schema=False)
 def widget():
-    # legacy path support; redirect to /ui
+    # legacy alias -> redirect to /ui
     return RedirectResponse(url="/ui", status_code=307)
-
 
 # local dev runner
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app:app", host="0.0.0.0", port=int(os.getenv("PORT", "10000")), reload=True)
-
