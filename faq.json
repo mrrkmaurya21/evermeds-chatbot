@@ -1,62 +1,296 @@
 [
   {
+    "q": "Do you deliver across India?",
+    "a": "Yes, we deliver across India. Delivery speed varies by location.",
+    "url": "/shipping",
+    "aliases": ["pan india delivery", "deliver in my city", "nationwide shipping"]
+  },
+  {
+    "q": "Are you available 24/7?",
+    "a": "Yes, our service is available 24/7.",
+    "url": "/about#availability",
+    "aliases": ["24x7", "open all time", "working hours", "timings"]
+  },
+  {
+    "q": "How do I upload a prescription?",
+    "a": "Use the 'Upload Prescription' option on the site. Prescription-only medicines require a valid Rx.",
+    "url": "/prescriptions#upload",
+    "aliases": ["upload rx", "submit prescription", "prescription needed", "rx upload"]
+  },
+  {
     "q": "What is EverMeds?",
-    "a": "EverMeds is an online pharmacy based in Gorakhpur, Uttar Pradesh. We provide 100% genuine medicines, health products, and wellness essentials delivered safely to your doorstep."
+    "a": "EverMeds is an online pharmacy offering genuine medicines and healthcare essentials.",
+    "url": "/about",
+    "aliases": ["about evermeds", "what do you do", "who are you"]
   },
   {
-    "q": "Do you deliver medicines in Gorakhpur only?",
-    "a": "No. While we’re based in Gorakhpur, we deliver across all major cities and towns in India. Local orders within Gorakhpur are usually delivered faster."
+    "q": "How does EverMeds work?",
+    "a": "Search products, upload prescription if required, place the order, and get delivery at your address.",
+    "url": "/how-it-works",
+    "aliases": ["how to order", "process", "steps to buy"]
   },
   {
-    "q": "How do I place an order on EverMeds?",
-    "a": "You can browse medicines, add to cart, upload a doctor’s prescription, or call EverMeds directly to place your order."
+    "q": "What payment methods do you accept?",
+    "a": "We accept UPI, major wallets, and cards like Visa and RuPay. Final options appear at checkout.",
+    "url": "/payments",
+    "aliases": ["payment options", "pay by upi", "wallets accepted", "card payment"]
   },
   {
-    "q": "Can I upload a prescription to buy medicines?",
-    "a": "Yes. Click on 'Upload Prescription' and our pharmacists will review it during checkout. Prescription verification is required."
+    "q": "How can I track my order?",
+    "a": "Use the 'Track Order' link from the main menu to see real-time status.",
+    "url": "/track-order",
+    "aliases": ["order status", "track package", "where is my order"]
   },
   {
-    "q": "How long does delivery take?",
-    "a": "Delivery time: Gorakhpur: within 24-48 hours. Other cities: 2-5 business days. Tracking details are provided once shipped."
+    "q": "Can I place an order by phone?",
+    "a": "Yes, you can place an order via the Contact page using the call support option.",
+    "url": "/contact#order-by-call",
+    "aliases": ["call to order", "order on phone", "phone order"]
   },
   {
-    "q": "Are the medicines authentic?",
-    "a": "Yes. EverMeds sources all medicines from trusted manufacturers and verified distributors. Expired or counterfeit items are never sold."
+    "q": "What if a medicine is not listed?",
+    "a": "Use 'Request a Medicine' and we will try to arrange it for you.",
+    "url": "/request-medicine",
+    "aliases": ["request item", "unlisted medicine", "not found product"]
   },
   {
-    "q": "Is it safe to pay online?",
-    "a": "Yes. EverMeds uses secure payment gateways. Cash on Delivery (COD) is also available for select locations."
+    "q": "Are the medicines genuine?",
+    "a": "Yes. We source from trusted suppliers and manufacturers. Products are 100% genuine.",
+    "url": "/quality",
+    "aliases": ["authenticity", "original medicines", "genuine products"]
   },
   {
-    "q": "Do you offer refunds or returns?",
-    "a": "Yes, for non-prescription items. If there’s a wrong or damaged product, contact support within 48 hours. See full Return & Refund Policy for details."
+    "q": "Do you stock top pharma brands?",
+    "a": "Yes, we work with leading pharma brands. Availability may vary by product.",
+    "url": "/brands",
+    "aliases": ["brand list", "which brands", "top brands"]
   },
   {
-    "q": "What if a medicine is out of stock?",
-    "a": "You can use 'Notify Me' (if available) or contact customer support. Restocking typically takes a few days."
+    "q": "Where can I see product details?",
+    "a": "Open any product page to view price, dosage, manufacturer, and description.",
+    "url": "/product-detail",
+    "aliases": ["medicine details", "product info", "description"]
   },
   {
-    "q": "Do you accept COD?",
-    "a": "Cash On Delivery is available for eligible locations. Check your ZIP/postal code at checkout."
+    "q": "How fast is delivery?",
+    "a": "We aim for quick delivery; timelines vary by location and order. Exact ETA appears at checkout.",
+    "url": "/shipping#speed",
+    "aliases": ["delivery time", "shipping time", "how long delivery"]
   },
   {
-    "q": "Which payment methods are accepted?",
-    "a": "EverMeds accepts online payments via debit/credit cards, UPI/online wallets, and in some locations, COD."
+    "q": "Is there a delivery fee?",
+    "a": "Delivery charges may vary by location and order value. The final fee is shown at checkout.",
+    "url": "/shipping#fees",
+    "aliases": ["shipping charges", "delivery charges", "is shipping free"]
   },
   {
-    "q": "What if my product is damaged or incorrect?",
-    "a": "If you receive a damaged or incorrect product, contact support with your order number. EverMeds will guide the return process and provide refund or replacement as per policy."
+    "q": "My order is delayed. What should I do?",
+    "a": "Please contact customer support with your order ID for assistance.",
+    "url": "/support#delivery",
+    "aliases": ["late order", "delay help", "delivery problem"]
   },
   {
-    "q": "How do I track my order?",
-    "a": "Use the 'Track Order' option on EverMeds. Enter your order ID or mobile number to get status updates."
+    "q": "How can I contact support?",
+    "a": "Use the Contact page to chat, email, or call our support team.",
+    "url": "/contact",
+    "aliases": ["customer care", "help center", "support number"]
   },
   {
-    "q": "What are the Terms & Conditions for using EverMeds?",
-    "a": "By placing orders you agree to provide accurate personal information. Prescription medications require valid prescriptions. Delivery times may vary. Refunds limited to non-prescription, unopened, unused items."
+    "q": "Is expert health consultation available?",
+    "a": "Yes. You can request a free health consultation for general guidance.",
+    "url": "/consultation",
+    "aliases": ["doctor chat", "talk to expert", "health advice"]
   },
   {
-    "q": "How can I contact EverMeds customer support?",
-    "a": "You can reach out via the Contact Us page, or email support@evermeds.in for help with orders, returns, or prescriptions."
+    "q": "Where can I find the Privacy Policy?",
+    "a": "You can find the Privacy Policy from the footer or the policies section.",
+    "url": "/privacy-policy",
+    "aliases": ["privacy", "data policy", "how data is used"]
+  },
+  {
+    "q": "How are complaints handled?",
+    "a": "Please raise a ticket via the Contact/Support page. We aim for quick resolution.",
+    "url": "/support#complaints",
+    "aliases": ["file complaint", "raise issue", "grievance"]
+  },
+  {
+    "q": "How do I create an account?",
+    "a": "Use the account icon or Sign Up option to register with your details.",
+    "url": "/account#signup",
+    "aliases": ["register", "create profile", "new account"]
+  },
+  {
+    "q": "I forgot my password. What should I do?",
+    "a": "Use the 'Forgot Password' option on the login page to reset it.",
+    "url": "/account#reset",
+    "aliases": ["password reset", "forgotten password", "reset link"]
+  },
+  {
+    "q": "How do I view my past orders?",
+    "a": "Go to your account dashboard and open the Orders section.",
+    "url": "/account#orders",
+    "aliases": ["order history", "previous orders", "past purchases"]
+  },
+  {
+    "q": "Do you have health blogs?",
+    "a": "Yes. Visit the Blogs section for health topics and tips.",
+    "url": "/blogs",
+    "aliases": ["articles", "health tips", "latest posts"]
+  },
+  {
+    "q": "Where can I see the latest blog posts?",
+    "a": "Open the Blogs page and sort or filter by latest.",
+    "url": "/blogs#latest",
+    "aliases": ["new blog", "recent articles", "latest updates"]
+  },
+  {
+    "q": "Are there any offers or discounts?",
+    "a": "Check the Offers section on the homepage or menu for current deals.",
+    "url": "/offers",
+    "aliases": ["discounts", "promo codes", "sale"]
+  },
+  {
+    "q": "How do I apply an offer code?",
+    "a": "Enter the coupon code at checkout. Valid offers will apply automatically.",
+    "url": "/offers#how-to",
+    "aliases": ["apply coupon", "use promo code", "discount code"]
+  },
+  {
+    "q": "Are products safe and approved?",
+    "a": "We list products from trusted suppliers that meet safety standards.",
+    "url": "/quality#safety",
+    "aliases": ["is it safe", "approved products", "quality assured"]
+  },
+  {
+    "q": "Should I consult a doctor before taking medicines?",
+    "a": "For medical decisions, please consult a qualified professional. Our content is informational only.",
+    "url": "/disclaimer",
+    "aliases": ["medical advice", "doctor recommendation", "safety advice"]
+  },
+  {
+    "q": "Do you have a disclaimer?",
+    "a": "Yes. Information provided is general and not a substitute for professional medical advice.",
+    "url": "/disclaimer",
+    "aliases": ["medical disclaimer", "advice note", "terms of use"]
+  },
+  {
+    "q": "What is your return and refund policy?",
+    "a": "Please refer to the Returns/Refunds policy page or contact support for assistance.",
+    "url": "/returns",
+    "aliases": ["refund", "return policy", "how to return"]
+  },
+  {
+    "q": "How can I cancel my order?",
+    "a": "Contact support with your order ID. Cancellations depend on order status and policy.",
+    "url": "/cancellations",
+    "aliases": ["cancel order", "order cancellation", "stop my order"]
+  },
+  {
+    "q": "Is there a minimum order value?",
+    "a": "Minimum order value may apply in some regions. The requirement is shown at checkout.",
+    "url": "/policies#mov",
+    "aliases": ["mov", "minimum amount", "min order"]
+  },
+  {
+    "q": "Do you offer Cash on Delivery (COD)?",
+    "a": "COD availability depends on location and order category. Check at checkout.",
+    "url": "/payments#cod",
+    "aliases": ["cash on delivery", "pay on delivery", "cod option"]
+  },
+  {
+    "q": "How long do refunds take?",
+    "a": "Refund timelines depend on the payment method and bank. We initiate refunds promptly after approval.",
+    "url": "/returns#refund-time",
+    "aliases": ["refund time", "money back when", "refund duration"]
+  },
+  {
+    "q": "Which prescription formats are accepted?",
+    "a": "We accept clear photos or PDFs of valid prescriptions as per policy.",
+    "url": "/prescriptions#formats",
+    "aliases": ["rx photo", "pdf prescription", "accepted format"]
+  },
+  {
+    "q": "How long is a prescription valid?",
+    "a": "Validity depends on local regulations and prescription type. Please follow your doctor's advice.",
+    "url": "/prescriptions#validity",
+    "aliases": ["rx validity", "valid prescription time", "how long rx valid"]
+  },
+  {
+    "q": "Can I get a GST invoice?",
+    "a": "Yes. You can download your invoice from the order details in your account.",
+    "url": "/account#invoice",
+    "aliases": ["gst bill", "invoice download", "tax invoice"]
+  },
+  {
+    "q": "Can I change my address after placing the order?",
+    "a": "Address changes are possible only before dispatch. Please contact support quickly.",
+    "url": "/support#address-change",
+    "aliases": ["edit address", "change delivery address", "address update"]
+  },
+  {
+    "q": "Can I reschedule the delivery?",
+    "a": "Rescheduling depends on the courier and order status. Contact support to check options.",
+    "url": "/support#reschedule",
+    "aliases": ["change delivery date", "reschedule", "new delivery time"]
+  },
+  {
+    "q": "Will I receive order confirmation by email or SMS?",
+    "a": "Yes. We send order confirmations and key updates to your registered contact details.",
+    "url": "/account#notifications",
+    "aliases": ["confirmation sms", "email confirmation", "order alerts"]
+  },
+  {
+    "q": "What is your contact number?",
+    "a": "Our helpline is +91 94531 31234 for orders and support.",
+    "url": "tel:+919453131234",
+    "aliases": ["contact number", "phone number", "call support", "customer care number", "helpline"]
+  },
+  {
+    "q": "What is your support email?",
+    "a": "Email us at support@evermeds.in. We usually reply within 24 hours.",
+    "url": "mailto:support@evermeds.in",
+    "aliases": ["email address", "customer care email", "support mail", "contact email"]
+  },
+  {
+    "q": "Do you provide WhatsApp support?",
+    "a": "Yes. Message us on WhatsApp at +91 94531 31234 for quick queries.",
+    "url": "https://wa.me/919453131234",
+    "aliases": ["whatsapp number", "chat on whatsapp", "whatsapp support"]
+  },
+  {
+    "q": "Where are you located?",
+    "a": "We are based in Gorakhpur, Uttar Pradesh, and we deliver pan-India.",
+    "url": "/about#location",
+    "aliases": ["city", "head office", "base location", "gorakhpur", "where are you based"]
+  },
+  {
+    "q": "Do you deliver in Gorakhpur?",
+    "a": "Yes, we deliver in Gorakhpur and nearby areas, along with pan-India deliveries.",
+    "url": "/shipping#gorakhpur",
+    "aliases": ["gorakhpur delivery", "local delivery", "deliver in my city"]
+  },
+  {
+    "q": "Is store pickup available in Gorakhpur?",
+    "a": "If you prefer pickup, please contact support to check availability in Gorakhpur.",
+    "url": "/contact#pickup",
+    "aliases": ["pickup point", "self pickup", "collect from store"]
+  },
+  {
+    "q": "What are your support hours?",
+    "a": "Service is online 24/7. Phone & WhatsApp support: 9 AM–8 PM IST.",
+    "url": "/contact#hours",
+    "aliases": ["working hours", "timings", "support timing", "customer care hours"]
+  },
+  {
+    "q": "What is your office address?",
+    "a": "We are based in Gorakhpur, Uttar Pradesh. For the full address, please see the Contact page.",
+    "url": "/contact#address",
+    "aliases": ["office location", "registered address", "head office address"]
+  },
+  {
+    "q": "Can I email my prescription or order?",
+    "a": "Yes. You can email your valid prescription and order details to support@evermeds.in.",
+    "url": "mailto:support@evermeds.in",
+    "aliases": ["email prescription", "send order by email", "place order by email"]
   }
 ]
