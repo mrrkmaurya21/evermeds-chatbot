@@ -1,210 +1,187 @@
-import os
-import re
-import json
-from flask import Flask, request, jsonify, make_response
-from flask_cors import CORS
-from openai import OpenAI
+# app.py — FastAPI backend for FAQ bot (keyword + fuzzy), hardened v1.1
+# Endpoints:
+#   POST /ask            -> {"q": "..."} -> {"answer": "...", "citations": [...]}
+#   POST /chat           -> {"message": "..."} -> {"reply": "...", "citations": [...]}
+#   GET  /healthz        -> health/status
+#   POST /admin/reload   -> reload faq.json (protected via X-Admin-Token)
+#   GET  /ui             -> serves chat UI file (chatui.html by default)
+#
+# Env you can set on Render:
+#   ALLOW_ORIGINS="https://yourdomain.com,https://www.yourdomain.com"
+#   ANSWER_THRESHOLD="0.60"
+#   UI_FILE="chatui.html"
+#   FRAME_ANCESTORS="https://yourdomain.com https://www.yourdomain.com"
+#   ADMIN_TOKEN="set-a-strong-secret"
+#
+# Notes:
+# - Keep faq.json in repo root (same folder as app.py).
+# - If you change file name, update Procfile accordingly: app:app
 
-app = Flask(__name__)
+import json, re, os
+from difflib import SequenceMatcher
+from pathlib import Path
+from typing import List, Dict
 
-# --- CORS: allow your site (add more if needed) ---
-CORS(app, resources={
-    r"/*": {
-        "origins": [
-            "https://evermeds.in",
-            "http://localhost:3000",
-            "http://localhost:8080"
-        ]
+from fastapi import FastAPI, Body, Header
+from pydantic import BaseModel
+from starlette.middleware.cors import CORSMiddleware
+from starlette.responses import JSONResponse, FileResponse
+
+HERE = Path(__file__).parent
+KB_PATH = HERE / "faq.json"
+
+ANSWER_THRESHOLD = float(os.getenv("ANSWER_THRESHOLD", "0.60"))
+UI_FILE = os.getenv("UI_FILE", "chatui.html")
+FRAME_ANCESTORS = os.getenv("FRAME_ANCESTORS", "")
+ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")  # REQUIRED to protect /admin/reload in prod
+
+# -------------------- Utils --------------------
+
+def norm(s: str) -> str:
+    return re.sub(r"\s+", " ", (s or "").strip().lower())
+
+def _fix_and_norm_item(it: Dict) -> Dict:
+    q = (it.get("q") or "").strip()
+    a = (it.get("a") or "").strip()
+    url = (it.get("url") or "/").strip() or "/"
+    aliases = it.get("aliases") or []
+    if not isinstance(aliases, list):
+        aliases = []
+
+    return {
+        "q": q, "a": a, "url": url, "aliases": aliases,
+        # precomputed normalized fields for speed
+        "q_norm": norm(q),
+        "a_norm": norm(a),
+        "aliases_norm": [norm(x) for x in aliases]
     }
-})
 
-# --- OpenAI client with clear guard for missing key ---
-OPENAI_KEY = os.environ.get("OPENAI_API_KEY", "")
-
-print("DEBUG ENV >> present?", bool(OPENAI_KEY))
-print("DEBUG ENV >> prefix:", OPENAI_KEY[:7], "len:", len(OPENAI_KEY))
-
-if not OPENAI_KEY:
-    raise RuntimeError("OPENAI_API_KEY not set in environment")
-
-client = OpenAI(api_key=OPENAI_KEY, timeout=30)
-
-
-# ---------- Helpers (FAQ optional, never break) ----------
-def load_faq_safe():
+def _load_kb() -> List[Dict]:
+    if not KB_PATH.exists():
+        print("WARNING: faq.json not found — creating empty KB.")
+        return []
+    raw = KB_PATH.read_text(encoding="utf-8")
     try:
-        with open("faq.json", "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
+        data = json.loads(raw)
+        if not isinstance(data, list):
+            raise ValueError("faq.json must be a JSON array")
+        fixed = [_fix_and_norm_item(it) for it in data]
+        return fixed
+    except Exception as e:
+        print("ERROR loading faq.json:", e)
         return []
 
-def best_faq_snippets(user_text: str, faq_items, top_k: int = 3):
-    """
-    Very simple keyword overlap scorer (no extra libs).
-    Returns top-k FAQ items that share words with the user query.
-    """
-    q = set(re.findall(r"[a-zA-Z0-9]+", (user_text or "").lower()))
-    scored = []
-    for item in faq_items or []:
-        qa_text = (item.get("question", "") + " " + item.get("answer", "")).lower()
-        t = set(re.findall(r"[a-zA-Z0-9]+", qa_text))
-        score = len(q & t)
-        if score > 0:
-            scored.append((score, item))
-    scored.sort(reverse=True, key=lambda x: x[0])
+# in-memory KB (list of dicts with precomputed norms)
+KB: List[Dict] = _load_kb()
+
+def score(query: str, item: Dict) -> float:
+    """keyword hits + fuzzy similarity using precomputed normalized fields."""
+    qn = norm(query)
+    # candidate texts: q, a, aliases
+    texts = [item["q_norm"], item["a_norm"]] + item["aliases_norm"]
+    best = 0.0
+    for tn in texts:
+        if not tn:
+            continue
+        kw = sum(1 for w in qn.split() if w and w in tn)   # keyword containment
+        fuzz = SequenceMatcher(None, qn, tn).ratio()       # fuzzy
+        best = max(best, kw + fuzz)
+    return best
+
+def retrieve(query: str, top_k: int = 3) -> List[Dict]:
+    scored = [(score(query, it), it) for it in KB]
+    scored.sort(key=lambda x: x[0], reverse=True)
     return [it for _, it in scored[:top_k]]
 
+# -------------------- FastAPI app --------------------
 
-# ---------- Health ----------
-@app.get("/health")
-def health():
-    return {"ok": True}
+app = FastAPI(title="EverMeds FAQ Bot", version="1.1.0")
 
+# CORS
+origins_env = os.getenv("ALLOW_ORIGINS", "*")
+if origins_env.strip():
+    allow_origins = [o.strip() for o in origins_env.split(",")] if origins_env != "*" else ["*"]
+else:
+    allow_origins = ["*"]
 
-# ---------- FAQs (reads faq.json from repo root) ----------
-@app.get("/faq")
-def get_faq():
-    try:
-        with open("faq.json", "r", encoding="utf-8") as f:
-            faq_data = json.load(f)
-        return jsonify(faq_data)
-    except FileNotFoundError:
-        return jsonify({"error": "faq.json not found in repo root"}), 404
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allow_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
+class AskIn(BaseModel):
+    q: str
 
-# ---------- Minimal in-iframe Widget UI ----------
-@app.get("/widget")
-def widget():
-    html = """<!doctype html>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>EverMeds Assistant</title>
-<style>
-  body{font:16px system-ui;margin:0;background:#fff}
-  header{background:#1e90ff;color:#fff;padding:10px 12px;font-weight:700}
-  .box{padding:12px}
-  .row{display:flex;gap:8px;margin-top:8px}
-  textarea{width:100%;height:120px;padding:8px;border:1px solid #ccc;border-radius:8px}
-  button{padding:8px 12px;border:0;border-radius:8px;cursor:pointer;background:#1e90ff;color:#fff}
-  pre{white-space:pre-wrap;font-family:ui-monospace, SFMono-Regular, Menlo, monospace;background:#f6f8fa;padding:10px;border-radius:8px}
-  .faq{margin-top:14px}
-  .faq h4{margin:12px 0 6px}
-  .faq-item{margin:8px 0}
-  .faq-q{font-weight:600}
-</style>
-<header>EverMeds Assistant</header>
-<div class="box">
-  <div class="row">
-    <textarea id="msg" placeholder="e.g., Which diabetes product is right for me?"></textarea>
-  </div>
-  <div class="row">
-    <button id="send">Send</button>
-  </div>
-  <h4>Reply</h4>
-  <pre id="out">—</pre>
+class ChatIn(BaseModel):
+    message: str
 
-  <div class="faq">
-    <h4>Quick FAQs</h4>
-    <div id="faqList">Loading FAQs…</div>
-  </div>
-</div>
-<script>
-  const out = document.getElementById('out');
-  document.getElementById('send').onclick = async () => {
-    const text = document.getElementById('msg').value.trim();
-    if(!text){ out.textContent = 'Please type something.'; return; }
-    if(text.length > 4000){ out.textContent = 'Input too long.'; return; }
-    out.textContent = 'Thinking…';
-    try{
-      const r = await fetch('/api/chat', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({messages:[{role:'user', content:text}]})
-      });
-      if(!r.ok){ out.textContent = 'Error: ' + r.status; return; }
-      const data = await r.json();
-      out.textContent = data.reply || '(no reply)';
-    }catch(e){
-      out.textContent = 'Network error';
-    }
-  };
-
-  // Load FAQs (best-effort)
-  (async function(){
-    try{
-      const r = await fetch('/faq');
-      const box = document.getElementById('faqList');
-      if(!r.ok){ box.textContent = 'FAQs unavailable.'; return; }
-      const items = await r.json();
-      if(!Array.isArray(items)){ box.textContent = 'No FAQs found.'; return; }
-      box.innerHTML = items.map(x => (
-        '<div class="faq-item"><div class="faq-q">'+
-        (x.question ? String(x.question) : '')+
-        '</div><div class="faq-a">'+
-        (x.answer ? String(x.answer) : '')+
-        '</div></div>'
-      )).join('');
-    }catch(e){
-      const box = document.getElementById('faqList');
-      box.textContent = 'FAQs unavailable.';
-    }
-  })();
-</script>
-"""
-    resp = make_response(html)
-    # Security / embed headers
-    resp.headers["X-Frame-Options"] = "ALLOWALL"  # intentionally embeddable in iframe
-    resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    resp.headers["X-Robots-Tag"] = "noindex, nofollow"
-    return resp
-
-
-# ---------- Chat proxy (FAQ-aware, graceful fallback) ----------
-@app.post("/api/chat")
-def api_chat():
-    payload = request.get_json(silent=True) or {}
-    messages = payload.get("messages", [])
-    if not isinstance(messages, list) or not messages:
-        return jsonify({"error": "no messages"}), 400
-
-    # Basic input length guard (user text total)
-    user_len = sum(len(m.get("content", "")) for m in messages if m.get("role") == "user")
-    if user_len > 4000:
-        return jsonify({"error": "input too long"}), 413
-
-    # Try to enrich with FAQs, but do NOT fail if missing
-    faq_items = load_faq_safe()
-    user_text = " ".join([m.get("content", "") for m in messages if m.get("role") == "user"])
-    top_faqs = best_faq_snippets(user_text, faq_items, top_k=3) if faq_items else []
-
-    system_ctx = "You are EverMeds assistant. Be concise, safe, and helpful."
-    if top_faqs:
-        system_ctx += "\nUse these FAQs if relevant:\n" + json.dumps(top_faqs, ensure_ascii=False)
-
-    messages_with_ctx = [{"role": "system", "content": system_ctx}] + messages
-
-    try:
-        r = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=messages_with_ctx,
-            temperature=0.3
-        )
-        reply = r.choices[0].message.content
-        return jsonify({"reply": reply})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.get("/debug/env")
-def debug_env():
-    key = os.environ.get("OPENAI_API_KEY", "")
+@app.get("/healthz")
+def healthz():
     return {
-        "present": bool(key),
-        "prefix": key[:7],      # e.g. 'sk-proj'
-        "length": len(key)
+        "ok": True,
+        "items": len(KB),
+        "threshold": ANSWER_THRESHOLD,
+        "allow_origins": allow_origins
     }
-# ---------- Run ----------
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
-    app.run(host="0.0.0.0", port=port)
 
+# ----- Admin: reload KB (protected) -----
+@app.post("/admin/reload")
+def admin_reload(x_admin_token: str = Header(default="")):
+    if not ADMIN_TOKEN:
+        # If you forget to set ADMIN_TOKEN, keep it no-op protected
+        return JSONResponse({"error": "ADMIN_TOKEN not set on server"}, status_code=403)
+    if x_admin_token != ADMIN_TOKEN:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+
+    global KB
+    KB = _load_kb()
+    return {"reloaded": True, "items": len(KB)}
+
+# ----- Main Q&A -----
+@app.post("/ask")
+def ask(inp: AskIn):
+    q = (inp.q or "").strip()
+    if not q:
+        return {"answer": "Please ask a question.", "citations": []}
+
+    hits = retrieve(q, top_k=3)
+    top = hits[0] if hits else None
+    if (not top) or (score(q, top) < ANSWER_THRESHOLD):
+        return {
+            "answer": "Sorry—this topic isn’t on our site yet. Please check our Contact/Support page.",
+            "citations": ["/contact"]
+        }
+
+    # Attach 1–3 citations (dedup)
+    cites = []
+    for h in hits[:3]:
+        u = h.get("url") or "/"
+        if u not in cites:
+            cites.append(u)
+
+    return {"answer": top.get("a", ""), "citations": cites}
+
+# backwards-compat endpoint if old UI calls /chat with {"message": "..."}
+@app.post("/chat")
+def chat(inp: ChatIn):
+    result = ask(AskIn(q=inp.message))
+    return {"reply": result["answer"], "citations": result.get("citations", [])}
+
+# Serve Chat UI directly from this service
+@app.get("/ui")
+def ui():
+    path = HERE / UI_FILE
+    if path.exists():
+        resp = FileResponse(str(path))
+        if FRAME_ANCESTORS:
+            resp.headers["Content-Security-Policy"] = f"frame-ancestors {FRAME_ANCESTORS}"
+        return resp
+    return JSONResponse({"error": f"{UI_FILE} not found"}, status_code=404)
+
+# local dev runner
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("app:app", host="0.0.0.0", port=int(os.getenv("PORT", "10000")), reload=True)
