@@ -1,162 +1,149 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   <title>EverMeds Chatbot</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
   <style>
-    :root{
-      --brand:#0078ff;
-      --bg1:#dbeafe; --bg2:#fef9c3;
-      --card:#ffffff; --bot:#f1f5f9;
-      --text:#111; --muted:#6b7280;
-    }
-    *{box-sizing:border-box}
-    body {
+    :root{ --brand:#0078ff; --bg1:#dbeafe; --bg2:#fef9c3; --card:#ffffff; --bot:#f1f5f9; --text:#111; --muted:#6b7280; }
+    *{ box-sizing: border-box }
+    html,body{ height:100%; margin:0 }
+    body{
       font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
       background: linear-gradient(135deg,var(--bg1),var(--bg2));
-      display: flex; justify-content: center; align-items: center;
-      min-height: 100vh; margin: 0; padding: 16px;
+      display:flex; justify-content:center; align-items:center; min-height:100svh; padding:16px; color:var(--text);
     }
-    #chatbox {
-      width: 420px; max-width: 100%; height: 80vh;
-      background: var(--card); border-radius: 14px;
-      box-shadow: 0 6px 20px rgba(0,0,0,.12);
-      display: flex; flex-direction: column; overflow: hidden; position: relative;
+    #chatbox{
+      width:420px; max-width:100%; height:80svh; background:var(--card); border-radius:14px;
+      box-shadow:0 6px 20px rgba(0,0,0,.12); display:flex; flex-direction:column; overflow:hidden; position:relative;
     }
-    #header {
-      padding: 12px; background: var(--brand); color:#fff; font-weight: 600;
-      display:flex; justify-content: space-between; align-items:center;
-    }
-    #clear { background: rgba(255,255,255,0.2); border:none; color:#fff;
-      padding:6px 12px; border-radius:8px; cursor:pointer; }
-    #clear:hover{ background: rgba(255,255,255,0.35); }
-    #log {
-      flex:1; padding: 14px; overflow-y: auto; display:flex; flex-direction:column; gap:12px;
-      background:#fafafa;
-    }
-    .row { display:flex; flex-direction:column; max-width: 85%; animation: fade .25s ease; }
-    .row.user { align-self: flex-end; text-align: right; }
-    .row.bot  { align-self: flex-start; text-align: left; }
-    .msg { padding: 10px 14px; border-radius: 18px; line-height: 1.45; word-wrap: break-word; white-space: pre-wrap; }
-    .row.user .msg { background: var(--brand); color:#fff; border-bottom-right-radius: 6px; }
-    .row.bot  .msg { background: var(--bot); color:var(--text); border-bottom-left-radius: 6px; }
-    .time { font-size: 11px; color: var(--muted); margin-top: 4px; }
-    .avatar { font-size: 20px; margin-bottom: 4px; }
-    .sources { font-size: 12px; margin-top: 6px; }
-    .sources a { color: #2563eb; text-decoration: none; }
-    .sources a:hover { text-decoration: underline; }
-    #inputArea { display:flex; border-top:1px solid #eee; padding:10px; gap:8px; background:#fff; }
-    #txt { flex:1; border:1px solid #ddd; border-radius: 10px; padding:10px; resize: none; min-height:42px; max-height:140px; }
-    #send { background: var(--brand); color:#fff; border:none; padding:0 16px; border-radius: 10px; cursor:pointer; }
-    #send:hover { background:#055bcc; }
-    #scrollBtn { display:none; position:absolute; bottom:90px; right:16px; background:var(--brand); color:#fff;
-      border:none; border-radius:50%; width:40px; height:40px; cursor:pointer; box-shadow:0 3px 8px rgba(0,0,0,.25);}
-    #footerNote { font-size: 11px; color: var(--muted); text-align:center; padding: 6px 0 10px; }
-    @keyframes fade{ from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
+    #header{ padding:12px; background:var(--brand); color:#fff; font-weight:600; display:flex; justify-content:space-between; align-items:center; }
+    #clear{ background:rgba(255,255,255,0.2); border:none; color:#fff; padding:6px 12px; border-radius:8px; cursor:pointer; }
+    #clear:hover{ background:rgba(255,255,255,0.35) }
+    #log{ flex:1; padding:14px; overflow-y:auto; display:flex; flex-direction:column; gap:12px; background:#fafafa; }
+    #log[aria-live="polite"]{ outline:none }
+    .row{ display:flex; flex-direction:column; max-width:85%; animation:fade .25s ease }
+    .row.user{ align-self:flex-end; text-align:right }
+    .row.bot{ align-self:flex-start; text-align:left }
+    .msg{ padding:10px 14px; border-radius:18px; line-height:1.45; word-wrap:break-word; white-space:pre-wrap }
+    .row.user .msg{ background:var(--brand); color:#fff; border-bottom-right-radius:6px }
+    .row.bot .msg{ background:var(--bot); color:var(--text); border-bottom-left-radius:6px }
+    .time{ font-size:11px; color:var(--muted); margin-top:4px }
+    .avatar{ font-size:20px; margin-bottom:4px }
+    .sources{ font-size:12px; margin-top:6px }
+    .sources a{ color:#2563eb; text-decoration:none }
+    .sources a:hover{ text-decoration:underline }
+    #inputArea{ display:flex; border-top:1px solid #eee; padding:10px; gap:8px; background:#fff }
+    #txt{ flex:1; border:1px solid #ddd; border-radius:10px; padding:10px; resize:none; min-height:42px; max-height:140px }
+    #send{ background:var(--brand); color:#fff; border:none; padding:0 16px; border-radius:10px; cursor:pointer }
+    #send[disabled]{ opacity:.6; cursor:not-allowed }
+    #send:hover{ background:#055bcc }
+    #scrollBtn{ display:none; position:absolute; bottom:90px; right:16px; background:var(--brand); color:#fff; border:none; border-radius:50%; width:40px; height:40px; cursor:pointer; box-shadow:0 3px 8px rgba(0,0,0,.25) }
+    #footerNote{ font-size:11px; color:var(--muted); text-align:center; padding:6px 0 10px }
+    @keyframes fade{ from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:translateY(0)} }
+
+    /* Embedded (iframe) mode = single background from parent */
+    html.embedded body{ background:transparent !important; padding:0; display:block; min-height:0 }
+    html.embedded #chatbox{ width:100%; max-width:100%; height:100svh; border-radius:0; box-shadow:none }
   </style>
 </head>
 <body>
-  <div id="chatbox">
-    <div id="header">
-      <span>💬 EverMeds Assistant</span>
-      <button id="clear">Clear</button>
-    </div>
-    <div id="log"></div>
-    <div id="inputArea">
-      <textarea id="txt" placeholder="Ask about delivery, returns, COD, prescription..." autocomplete="off"></textarea>
-      <button id="send">Send</button>
-    </div>
-    <button id="scrollBtn" title="Scroll to bottom">⬇</button>
+  <div id="chatbox" role="application" aria-label="EverMeds Chat">
+    <div id="header"><span>💬 EverMeds Assistant</span><button id="clear" type="button">Clear</button></div>
+    <div id="log" aria-live="polite" aria-atomic="false"></div>
+    <div id="inputArea"><textarea id="txt" placeholder="Ask about delivery, returns, COD, prescription..." aria-label="Your message"></textarea><button id="send" type="button">Send</button></div>
+    <button id="scrollBtn" title="Scroll to bottom" aria-label="Scroll to bottom">⬇</button>
     <div id="footerNote">Info only · Not medical advice</div>
   </div>
 
   <script>
-    // Same-origin API on Render (no localhost). Backend provides /ask and /chat.
-    // We use /ask (preferred): body {q}, response {answer, citations[]}
-    const API = "/ask";
+    // ---- Mode & config via URL params ----
+    const params = new URLSearchParams(location.search);
+    const inFrame = (window.self !== window.top);
+    if (inFrame || params.get('embed') === '1') document.documentElement.classList.add('embedded');
+    const API   = params.get('api')   || "/ask";
+    const BRAND = params.get('brand'); if (BRAND) document.documentElement.style.setProperty('--brand', BRAND);
 
-    const log = document.getElementById('log');
-    const txt = document.getElementById('txt');
-    const sendBtn = document.getElementById('send');
-    const clearBtn = document.getElementById('clear');
-    const scrollBtn = document.getElementById('scrollBtn');
+    // ---- Elements ----
+    const log = document.getElementById('log'), txt = document.getElementById('txt'), sendBtn = document.getElementById('send'), clearBtn = document.getElementById('clear'), scrollBtn = document.getElementById('scrollBtn');
 
-    function ts(){ return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
+    // ---- Helpers ----
+    const ts = () => new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    const escapeHTML = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const sanitizeHref = u => {
+      if (!u) return null;
+      try{
+        if (u.startsWith('mailto:') || u.startsWith('tel:')) return u;
+        const url = new URL(u, location.origin);
+        const okProto = (url.protocol === 'https:' || url.protocol === 'http:');
+        if (okProto || u.startsWith('/')) return url.href;
+      }catch(e){}
+      return null;
+    };
 
     function addBubble(text, who, citations){
       const row = document.createElement('div'); row.className = 'row ' + who;
-      const avatar = document.createElement('div'); avatar.className = 'avatar'; avatar.textContent = (who==='user' ? '🙂' : '🤖');
-      const msg = document.createElement('div'); msg.className = 'msg'; msg.innerHTML = (text||'').replace(/\n/g,'<br>');
+      const avatar = document.createElement('div'); avatar.className = 'avatar'; avatar.textContent = (who==='user'?'🙂':'🤖');
+      const msg = document.createElement('div'); msg.className = 'msg'; msg.innerHTML = escapeHTML(text||'').replace(/\n/g,'<br>');
       const time = document.createElement('div'); time.className = 'time'; time.textContent = ts();
       row.appendChild(avatar); row.appendChild(msg);
-      if(citations && citations.length){
-        const src = document.createElement('div');
-        src.className = 'sources';
-        src.innerHTML = 'Sources: ' + citations.map(u => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`).join(' | ');
-        row.appendChild(src);
+      if(Array.isArray(citations) && citations.length){
+        const links = citations.map(sanitizeHref).filter(Boolean);
+        if (links.length){
+          const src = document.createElement('div'); src.className = 'sources';
+          src.innerHTML = 'Sources: ' + links.map(u => `<a href="${u}" target="_blank" rel="noopener noreferrer nofollow">${u}</a>`).join(' | ');
+          row.appendChild(src);
+        }
       }
       row.appendChild(time);
-      log.appendChild(row); log.scrollTop = log.scrollHeight;
+      log.appendChild(row); log.scrollTop = log.scrollHeight; persist();
     }
 
     function typing(on){
       let el = document.getElementById('typing');
-      if(on){
-        if(!el){
-          el = document.createElement('div'); el.id='typing'; el.className='row bot';
-          el.innerHTML = `<div class="avatar">🤖</div><div class="msg">Typing…</div><div class="time">${ts()}</div>`;
-          log.appendChild(el);
-        }
-      } else if(el){ el.remove(); }
+      if(on){ if(!el){ el = document.createElement('div'); el.id='typing'; el.className='row bot'; el.innerHTML = `<div class="avatar">🤖</div><div class="msg">Typing…</div><div class="time">${ts()}</div>`; log.appendChild(el); } }
+      else if(el){ el.remove(); }
       log.scrollTop = log.scrollHeight;
+    }
+
+    function setDisabled(state){ sendBtn.disabled = state; txt.disabled = state; }
+
+    async function fetchWithTimeout(resource, options = {}) {
+      const { timeout = 20000 } = options;
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeout);
+      try{ const resp = await fetch(resource, { ...options, signal: controller.signal }); clearTimeout(id); return resp; }
+      catch(e){ clearTimeout(id); throw e; }
     }
 
     async function sendMessage(){
       const q = (txt.value || '').trim(); if(!q) return;
-      addBubble(q, 'user'); txt.value = ''; txt.style.height='42px'; txt.focus();
-      typing(true);
+      addBubble(q, 'user'); txt.value=''; txt.style.height='42px'; txt.focus(); typing(true); setDisabled(true);
       try{
-        const r = await fetch(API, {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({q})
-        });
-        const j = await r.json();
-        typing(false);
+        if(!navigator.onLine) throw new Error('You appear to be offline.');
+        const r = await fetchWithTimeout(API, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({q}), timeout: 20000 });
+        let j = {}; try { j = await r.json(); } catch(e){}
+        typing(false); setDisabled(false);
+        if(!r.ok){ addBubble('Server error ('+r.status+'). Please try again later.', 'bot'); return; }
         addBubble(j.answer || j.reply || j.error || 'No response', 'bot', j.citations);
-      }catch(e){
-        typing(false);
-        addBubble('Error: '+e.message, 'bot');
-      }
+      }catch(e){ typing(false); setDisabled(false); addBubble('Error: '+(e.message||e), 'bot'); }
     }
 
     // textarea auto-resize + Enter behavior
-    txt.addEventListener('input', () => {
-      txt.style.height = 'auto';
-      txt.style.height = Math.min(txt.scrollHeight, 140) + 'px';
-    });
-    txt.addEventListener('keydown', (e) => {
-      if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendMessage(); }
-    });
-
+    txt.addEventListener('input', () => { txt.style.height='auto'; txt.style.height = Math.min(txt.scrollHeight, 140)+'px'; });
+    txt.addEventListener('keydown', (e) => { if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendMessage(); } });
     sendBtn.onclick = sendMessage;
-    clearBtn.onclick = () => { log.innerHTML = ''; greet(); };
 
-    function greet(){
-      addBubble('Hi! I can help with delivery, returns, COD, prescription upload, and payments.', 'bot');
-    }
-    greet();
+    clearBtn.onclick = () => { log.innerHTML=''; persist(); greet(); };
+    function greet(){ addBubble('Hi! I can help with delivery, returns, COD, prescription upload, and payments.', 'bot'); }
 
-    // scroll button logic
-    log.addEventListener('scroll', () => {
-      if(log.scrollTop + log.clientHeight < log.scrollHeight - 50){
-        scrollBtn.style.display = 'block';
-      } else {
-        scrollBtn.style.display = 'none';
-      }
-    });
+    log.addEventListener('scroll', () => { scrollBtn.style.display = (log.scrollTop + log.clientHeight < log.scrollHeight - 50) ? 'block' : 'none'; });
     scrollBtn.onclick = () => { log.scrollTop = log.scrollHeight; };
+
+    // persist/restore
+    const KEY='em_chat_log_html'; function persist(){ sessionStorage.setItem(KEY, log.innerHTML); }
+    (function restore(){ const saved = sessionStorage.getItem(KEY); if(saved){ log.innerHTML=saved; } else { greet(); } log.scrollTop = log.scrollHeight; })();
   </script>
 </body>
 </html>
