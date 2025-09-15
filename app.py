@@ -1,4 +1,4 @@
-# app.py — FastAPI backend for FAQ bot (keyword + fuzzy), v1.2
+# app.py — FastAPI backend for FAQ bot (keyword + fuzzy), v1.3
 # Endpoints:
 #   POST /ask            -> {"q": "..."} -> {"answer": "...", "citations": [...]}
 #   POST /chat           -> {"message": "..."} -> {"reply": "...", "citations": [...]}
@@ -13,7 +13,8 @@
 #   FRAME_ANCESTORS="https://yourdomain.com https://www.yourdomain.com"
 #   UI_FILE="chatui.html"
 #   ADMIN_TOKEN="set-a-strong-secret"
-#   ANSWER_THRESHOLD="0.60"   # optional
+#   ANSWER_THRESHOLD="0.60"     # optional
+#   SITE_BASE_URL="https://evermeds.in"   # << new: for absolute citations
 #
 # Files:
 #   - faq.json (Q/A KB) in the repo root (same folder as app.py)
@@ -36,6 +37,7 @@ ANSWER_THRESHOLD = float(os.getenv("ANSWER_THRESHOLD", "0.60"))
 UI_FILE         = os.getenv("UI_FILE", "chatui.html")
 FRAME_ANCESTORS = os.getenv("FRAME_ANCESTORS", "")
 ADMIN_TOKEN     = os.getenv("ADMIN_TOKEN", "")
+SITE_BASE_URL   = os.getenv("SITE_BASE_URL", "")  # e.g., https://evermeds.in
 
 # ---------- helpers ----------
 
@@ -69,6 +71,17 @@ def _load_kb() -> List[Dict]:
         print("ERROR loading faq.json:", e)
         return []
 
+# make relative URLs absolute against SITE_BASE_URL
+def abs_url(u: str) -> str:
+    if not u:
+        return "/"
+    if u.startswith(("http://", "https://", "mailto:", "tel:")):
+        return u
+    if u.startswith("/"):
+        base = (SITE_BASE_URL or "").rstrip("/")
+        return (base + u) if base else u
+    return u
+
 KB: List[Dict] = _load_kb()
 
 def score(query: str, item: Dict) -> float:
@@ -76,7 +89,7 @@ def score(query: str, item: Dict) -> float:
     texts = [item["q_norm"], item["a_norm"]] + item["aliases_norm"]
     best = 0.0
     for tn in texts:
-        if not tn: 
+        if not tn:
             continue
         kw   = sum(1 for w in qn.split() if w and w in tn)   # keyword hits
         fuzz = SequenceMatcher(None, qn, tn).ratio()         # fuzzy ratio
@@ -90,7 +103,7 @@ def retrieve(query: str, top_k: int = 3) -> List[Dict]:
 
 # ---------- app ----------
 
-app = FastAPI(title="EverMeds FAQ Bot", version="1.2.0")
+app = FastAPI(title="EverMeds FAQ Bot", version="1.3.0")
 
 # CORS
 origins_env = os.getenv("ALLOW_ORIGINS", "*")
@@ -116,7 +129,7 @@ def root():
 
 @app.get("/healthz")
 def healthz():
-    return {"ok": True, "items": len(KB), "threshold": ANSWER_THRESHOLD, "allow_origins": allow_origins}
+    return {"ok": True, "items": len(KB), "threshold": ANSWER_THRESHOLD, "allow_origins": allow_origins, "site_base": SITE_BASE_URL}
 
 @app.post("/admin/reload")
 def admin_reload(x_admin_token: str = Header(default="")):
@@ -136,11 +149,12 @@ def ask(inp: AskIn):
     hits = retrieve(q, top_k=3)
     top  = hits[0] if hits else None
     if (not top) or (score(q, top) < ANSWER_THRESHOLD):
-        return {"answer": "Sorry—this topic isn’t on our site yet. Please check our Contact/Support page.", "citations": ["/contact"]}
+        return {"answer": "Sorry—this topic isn’t on our site yet. Please check our Contact/Support page.", "citations": [abs_url("/contact")]}
+    # attach 1–3 citations (absolute URLs)
     cites = []
     for h in hits[:3]:
-        u = h.get("url") or "/"
-        if u not in cites: 
+        u = abs_url(h.get("url") or "/")
+        if u not in cites:
             cites.append(u)
     return {"answer": top.get("a", ""), "citations": cites}
 
